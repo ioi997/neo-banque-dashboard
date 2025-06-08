@@ -51,7 +51,7 @@ if st.button("📤 Envoyer pour scoring"):
         res = requests.post(API_URL, json=input_data, timeout=10)
         res.raise_for_status()  # Lève une exception pour les codes HTTP d'erreur
         response_data = res.json()
-        st.write("🔍 Réponse brute de l’API :", res.json())
+        #st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
         explanations_from_api = response_data.get("explanations", [])
 
