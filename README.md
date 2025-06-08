@@ -37,6 +37,7 @@ Déployé dans le cadre d’un cas d’étude en Mastère IA, ce projet vise à 
  ---
 📂 Structure du projet
 neo-banque-dashboard/
+
 ├── app/
 │   ├── model.pkl             # Modèle ML entraîné (RandomForest)
 │   └── explainer.pkl         # Explainer SHAP
