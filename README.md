@@ -31,7 +31,7 @@ Déployé dans le cadre d’un cas d’étude en Mastère IA, ce projet vise à 
 🌐 Accéder aux applications déployées
 | Composant    | URL                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------ |
-| 🔗 Dashboard | [https://neo-banque-dashboard.onrender.com](https://neo-banque-dashboard.onrender.com)                 |
+| 🔗 Dashboard | [https://neo-banque-dashboard.onrender.com](https://neo-banque-dashboard-1.onrender.com)                 |
 | 🔗 API       | [https://neo-banque-dashboard.onrender.com/predict](https://neo-banque-dashboard.onrender.com/predict) |
 
 
