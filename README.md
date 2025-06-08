@@ -37,6 +37,7 @@ Déployé dans le cadre d’un cas d’étude en Mastère IA, ce projet vise à 
 
  ---
  🔐 RGPD & Éthique
+
 Aucune donnée personnelle (nom, adresse, email) n’est collectée.
 
 Seules les données financières sont utilisées à des fins de scoring.
