@@ -35,7 +35,7 @@ client = clients.loc[selected_id]
 st.subheader("Informations client")
 st.write(client)
 
-API_URL = os.getenv("API_URL", "https://neo-banque-dashboard-1.onrender.com/predict")
+API_URL = os.getenv("API_URL", "https://neo-api-jigt.onrender.com/predict")
 
 if st.button("📤 Envoyer pour scoring"):
     input_data = {
