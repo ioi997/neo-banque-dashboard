@@ -20,6 +20,7 @@ explainer = joblib.load("app/explainer.pkl")
 
 @app.post("/predict")
 def predict(data: ClientData):
+    print("✅ Données reçues :", data.dict())
     # Convertir en dataframe
     df = pd.DataFrame([data.dict()])
 
@@ -71,6 +72,10 @@ def predict(data: ClientData):
     for feature, impact in sorted_impacts:
         sign = "positivement" if impact > 0 else "négativement"
         explanation_list.append(f"La feature '{feature}' impacte {sign} la prédiction avec un poids de {impact:.3f}")
+    
+    print("✅ Score renvoyé :", score)
+    print("✅ Explications :", explanation_list)
+
 
     return {
         "score": score,
