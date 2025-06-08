@@ -4,79 +4,97 @@ import requests
 from PIL import Image
 
 # Configuration de la page
-st.set_page_config(page_title="Dashboard Néo-Banque", layout="centered")
+st.set_page_config(page_title="Néo-Banque", layout="wide")
 
-# === En-tête stylisé ===
+# === Header stylisé ===
 st.markdown(
     """
-    <h1 style='text-align: center; color: #2e86c1;'>🏦 Dashboard - Néo-Banque</h1>
-    <h4 style='text-align: center; color: gray;'>Analyse d'éligibilité au prêt client</h4>
+    <style>
+        .main-title {
+            text-align: center;
+            font-size: 48px;
+            color: #2e86c1;
+            font-weight: bold;
+        }
+        .section-header {
+            font-size: 24px;
+            margin-top: 20px;
+            color: #1f4e79;
+        }
+        .card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+    </style>
+    <h1 class='main-title'>🏦 Dashboard – Néo-Banque</h1>
     """,
     unsafe_allow_html=True
 )
 
-# === Logo optionnel (ajoute un logo.png dans data/) ===
+# === Logo ===
 try:
     logo = Image.open("data/logo.png")
-    st.image(logo, width=100)
+    st.sidebar.image(logo, width=150)
 except:
-    pass
+    st.sidebar.markdown("# Néo-Banque")
+
+st.sidebar.markdown("## 🌐 Menu")
+st.sidebar.info("Choisissez un client pour analyser son profil de crédit.")
 
 # === Chargement des données clients ===
 clients = pd.read_csv("data/clients.csv").reset_index().rename(columns={"index": "id"})
 
-st.markdown("### 👤 Sélection d'un client")
-selected_id = st.selectbox("Choisir un client", clients.index)
-client = clients.loc[selected_id]
+# === Sélection du client ===
+client_id = st.sidebar.selectbox("Sélectionnez un client", clients.index)
+client = clients.loc[client_id]
 
-# === Affichage des infos client ===
-st.markdown("### 📋 Informations client")
-st.write(client)
+# === Affichage des infos et bouton ===
+col1, col2 = st.columns([1, 2])
 
-# === Bouton de prédiction ===
-if st.button("📤 Envoyer pour scoring"):
-    input_data = {
-        "age": int(client["age"]),
-        "revenu": float(client["revenu"]),
-        "anciennete": int(client["anciennete"]),
-        "nb_incidents": int(client["nb_incidents"]),
-        "score_credit": float(client["score_credit"]),
-    }
+with col1:
+    st.markdown("<div class='section-header'>💼 Informations client</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card'>" + client.to_frame().to_html(header=False) + "</div>", unsafe_allow_html=True)
 
-    try:
-        # URL de l'API en ligne – assure-toi qu'elle est correcte
-        res = requests.post("https://neo-banque-dashboard.onrender.com/predict", json=input_data)
-        response_data = res.json()
+with col2:
+    if st.button("📤 Envoyer pour scoring"):
+        input_data = {
+            "age": int(client["age"]),
+            "revenu": float(client["revenu"]),
+            "anciennete": int(client["anciennete"]),
+            "nb_incidents": int(client["nb_incidents"]),
+            "score_credit": float(client["score_credit"]),
+        }
 
-        # Affiche la réponse brute en debug
-        #st.write("🔍 Réponse API :", response_data)
+        try:
+            res = requests.post("https://neo-banque-dashboard.onrender.com/predict", json=input_data)
+            data = res.json()
 
-        # === Affichage du score ===
-        score = response_data["score"]
-        st.markdown("### 📤 Résultat du scoring")
-        st.metric("💯 Score d’éligibilité", f"{score * 100:.1f} %")
+            if "score" not in data:
+                st.error("L'API n'a pas retourné de score.")
+                #st.write("Réponse brute :", data)
+            else:
+                st.markdown("<div class='section-header'>🌐 Résultat</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"""
+                    <div class='card'>
+                    <h3>Score d'éligibilité : <span style='color:{'green' if data['score'] > 0.5 else 'red'};'>{data['score']*100:.1f}%</span></h3>
+                    <p>{'Client probablement éligible ✅' if data['score'] > 0.5 else 'Client potentiellement à risque ⚠️'}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        if score > 0.5:
-            st.success("✅ Ce client est probablement **éligible au prêt**.")
-        else:
-            st.warning("⚠️ Ce client semble **à risque** ou **inéligible**.")
+                st.markdown("<div class='section-header'>🔍 Explication de la décision</div>", unsafe_allow_html=True)
+                for explanation in data.get("explanations", []):
+                    if "positivement" in explanation:
+                        st.markdown(f"<div class='card' style='border-left: 5px solid green;'>{explanation}</div>", unsafe_allow_html=True)
+                    elif "négativement" in explanation:
+                        st.markdown(f"<div class='card' style='border-left: 5px solid red;'>{explanation}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div class='card'>{explanation}</div>", unsafe_allow_html=True)
 
-        # === Affichage des explications ===
-        st.markdown("### 🔍 Explication du score")
-
-        explanations = response_data.get("explanations", [])
-        if explanations:
-            for explanation in explanations:
-                if "positivement" in explanation:
-                    st.markdown(f"<span style='color:green;'>⬆️ {explanation}</span>", unsafe_allow_html=True)
-                elif "négativement" in explanation:
-                    st.markdown(f"<span style='color:red;'>⬇️ {explanation}</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"➡️ {explanation}")
-        else:
-            st.info("ℹ️ Aucune explication n’a pu être générée pour ce client.")
-
-    except requests.exceptions.ConnectionError:
-        st.error("🚫 Erreur de connexion à l’API. Vérifiez que l'API est bien en ligne.")
-    except Exception as e:
-        st.error(f"❌ Une erreur inattendue s'est produite : {e}")
+        except Exception as e:
+            st.error(f"Erreur lors de la requête à l'API : {e}")
