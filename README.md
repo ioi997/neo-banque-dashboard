@@ -34,22 +34,11 @@ Déployé dans le cadre d’un cas d’étude en Mastère IA, ce projet vise à 
 | 🔗 Dashboard | [https://neo-banque-dashboard.onrender.com](https://neo-banque-dashboard.onrender.com)                 |
 | 🔗 API       | [https://neo-banque-dashboard.onrender.com/predict](https://neo-banque-dashboard.onrender.com/predict) |
 
- ---
-📂 Structure du projet
-neo-banque-dashboard/
-
-├── app/
-│   ├── model.pkl             # Modèle ML entraîné (RandomForest)
-│   └── explainer.pkl         # Explainer SHAP
-├── data/
-│   └── clients.csv           # Données des clients à scorer
-├── api.py                    # API FastAPI
-├── streamlit_app.py          # Interface utilisateur
-├── requirements.txt
-└── README.md
 
  ---
  🔐 RGPD & Éthique
 Aucune donnée personnelle (nom, adresse, email) n’est collectée.
+
 Seules les données financières sont utilisées à des fins de scoring.
+
 Le modèle est explicable et transparent via SHAP (compliant IA éthique).
