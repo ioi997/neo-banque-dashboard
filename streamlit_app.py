@@ -12,22 +12,6 @@ clients = pd.read_csv("data/clients.csv").reset_index().rename(columns={"index":
 st.title("📊 Dashboard conseiller")
 selected_id = st.selectbox("Choisir un client", clients.index)
 
-# Sidebar content
-with st.sidebar:
-    with st.expander("🔐 Données & RGPD"):
-        st.markdown("""
-        **Conformité RGPD**
-
-        - Ce dashboard traite des données **pseudonymisées**
-        - Aucune donnée personnelle (nom, email...) n’est utilisée
-        - Les données sont utilisées uniquement à des fins de **scoring de prêt**
-        - Le traitement est **explicable** grâce aux outils SHAP
-
-        👉 Ce traitement respecte les principes du RGPD :
-        - Licéité, transparence, finalité, minimisation
-        - Pas de stockage ni de profilage automatisé externe
-        """)
-
 client = clients.loc[selected_id]
 st.subheader("Informations client")
 st.write(client)
@@ -44,7 +28,7 @@ if st.button("📤 Envoyer pour scoring"):
     try:
         res = requests.post("https://neo-banque-dashboard.onrender.com/predict", json=input_data)
         response_data = res.json()
-        #st.write("🔍 Réponse brute de l’API :", res.json())
+        st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
         explanations_from_api = response_data.get("explanations", [])  # clé au pluriel
 
