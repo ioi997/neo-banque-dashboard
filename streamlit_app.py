@@ -49,7 +49,7 @@ if st.button("📤 Envoyer pour scoring"):
         response_data = res.json()
 
         # Affiche la réponse brute en debug
-        st.write("🔍 Réponse API :", response_data)
+        #st.write("🔍 Réponse API :", response_data)
 
         # === Affichage du score ===
         score = response_data["score"]
