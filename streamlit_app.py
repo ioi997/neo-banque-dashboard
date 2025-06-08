@@ -26,7 +26,7 @@ if st.button("📤 Envoyer pour scoring"):
     }
 
     try:
-        res = requests.post("https://neo-banque-dashboard.onrender.com", json=input_data)
+        res = requests.post("https://neo-banque-dashboard.onrender.com/predict", json=input_data)
         response_data = res.json()
         st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
