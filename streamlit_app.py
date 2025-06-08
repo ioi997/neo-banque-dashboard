@@ -4,8 +4,27 @@
 import streamlit as st
 import pandas as pd
 import requests
+import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 st.set_page_config(page_title="Dashboard Néo-Banque", layout="centered")
+
+# Ajout de la section RGPD dans la sidebar
+with st.sidebar.expander("🔐 Données & RGPD"):
+    st.markdown("""
+    **Conformité RGPD**
+
+    - Ce dashboard traite des données **pseudonymisées**
+    - Aucune donnée personnelle (nom, email...) n’est utilisée
+    - Les données sont utilisées uniquement à des fins de **scoring de prêt**
+    - Le traitement est **explicable** grâce aux outils SHAP
+
+    👉 Ce traitement respecte les principes du RGPD :
+    - Licéité, transparence, finalité, minimisation
+    - Pas de stockage ni de profilage automatisé externe
+    """)
 
 clients = pd.read_csv("data/clients.csv").reset_index().rename(columns={"index": "id"})
 
@@ -15,6 +34,8 @@ selected_id = st.selectbox("Choisir un client", clients.index)
 client = clients.loc[selected_id]
 st.subheader("Informations client")
 st.write(client)
+
+API_URL = os.getenv("API_URL", "https://neo-banque-dashboard.onrender.com/predict")
 
 if st.button("📤 Envoyer pour scoring"):
     input_data = {
@@ -26,11 +47,13 @@ if st.button("📤 Envoyer pour scoring"):
     }
 
     try:
-        res = requests.post("https://neo-banque-dashboard.onrender.com/predict", json=input_data)
+        logging.info(f"Envoi de la requête à l'API : {input_data}")
+        res = requests.post(API_URL, json=input_data, timeout=10)
+        res.raise_for_status()  # Lève une exception pour les codes HTTP d'erreur
         response_data = res.json()
         st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
-        explanations_from_api = response_data.get("explanations", [])  # clé au pluriel
+        explanations_from_api = response_data.get("explanations", [])
 
         st.metric("Score d’éligibilité au prêt", f"{score * 100:.1f} %")
 
@@ -52,6 +75,8 @@ if st.button("📤 Envoyer pour scoring"):
             st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
 
     except requests.exceptions.ConnectionError:
-        st.error("Erreur de connexion à l’API. Assurez-vous que l'API est lancée sur http://localhost:8000.")
+        st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
     except Exception as e:
         st.error(f"Une erreur inattendue s'est produite : {e}")
