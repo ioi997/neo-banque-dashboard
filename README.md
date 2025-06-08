@@ -1,4 +1,4 @@
-# 🏦 Dashboard IA – Néo-Banque
+# 🏦 Dashboard – Néo-Banque
 
 Ce projet met en œuvre une application complète composée :
 
