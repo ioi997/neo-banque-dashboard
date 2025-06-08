@@ -28,6 +28,7 @@ if st.button("📤 Envoyer pour scoring"):
     try:
         res = requests.post("https://neo-banque-dashboard.onrender.com", json=input_data)
         response_data = res.json()
+        st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
         explanations_from_api = response_data.get("explanations", [])  # clé au pluriel
 
