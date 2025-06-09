@@ -51,16 +51,48 @@ if st.button("📤 Envoyer pour scoring"):
         res = requests.post(API_URL, json=input_data, timeout=10)
         res.raise_for_status()  # Lève une exception pour les codes HTTP d'erreur
         response_data = res.json()
-        #st.write("🔍 Réponse brute de l’API :", res.json())
         score = response_data["score"]
         explanations_from_api = response_data.get("explanations", [])
 
-        st.metric("Score d’éligibilité au prêt", f"{score * 100:.1f} %")
+        # Nouvelle section avec jauge visuelle
+        st.subheader("Score d'éligibilité au prêt")
+        
+        # Jauge colorée avec indicateur
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col2:
+            # Barre de progression colorée
+            progress_value = score
+            progress_color = "red" if score < 0.3 else "orange" if score < 0.5 else "green"
+            
+            st.markdown(f"""
+            <div style="margin-bottom: 10px; text-align: center; font-weight: bold; font-size: 20px;">
+                {score * 100:.1f}%
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.progress(progress_value)
+            
+            # Ajout d'indicateurs sous la jauge
+            st.markdown("""
+            <div style="display: flex; justify-content: space-between; margin-top: -10px;">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: -15px;">
+                <span>Risque élevé</span>
+                <span>Limite</span>
+                <span>Très favorable</span>
+            </div>
+            """, unsafe_allow_html=True)
 
+        # Message d'interprétation
         if score > 0.5:
             st.success("✅ Client éligible probable au prêt.")
+        elif score > 0.3:
+            st.warning("⚠️ Client à risque modéré - Analyse approfondie recommandée.")
         else:
-            st.warning("⚠️ Client potentiellement inéligible ou profil à risque.")
+            st.error("❌ Client à haut risque - Probablement inéligible.")
 
         st.subheader("Comprendre le score (facteurs clés)")
         if explanations_from_api:
@@ -75,8 +107,8 @@ if st.button("📤 Envoyer pour scoring"):
             st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
 
     except requests.exceptions.ConnectionError:
-        st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
+        st.error(f"Erreur de connexion à l'API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
     except requests.exceptions.RequestException as e:
-        st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
+        st.error(f"Erreur lors de la communication avec l'API : {e}. Vérifiez l'URL et la configuration de l'API.")
     except Exception as e:
         st.error(f"Une erreur inattendue s'est produite : {e}")
