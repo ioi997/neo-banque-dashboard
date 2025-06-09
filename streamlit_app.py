@@ -22,40 +22,42 @@ def reset_scoring_state():
         del st.session_state['explanations']
     st.session_state['api_called'] = False
 
-# Fonction utilitaire pour parser les explications SHAP
+# Fonction utilitaire pour parser les explications SHAP selon le nouveau format
 def _parse_shap_explanation(explanation_text):
     """
-    Parse une chaîne d'explication SHAP pour extraire la direction, la description et la valeur.
-    Ex: "Revenu annuel a positivement influencé le score d'environ +12.3%"
-    Retourne (direction_symbole, description, valeur_str, est_positif)
+    Parse une chaîne d'explication SHAP selon le nouveau format.
+    Ex: "La fonctionnalité 'revenu' impacte positivement la prédiction avec un poids de 0.228"
+    Ex: "La feature 'age' impacte négativement la prédiction avec un poids de -0.228"
+    Retourne (direction_symbole_html, description, valeur_str, est_positif)
     """
-    match_positive = re.match(r"(.+) a positivement influencé le score d'environ \+(\d+\.?\d*)%", explanation_text)
-    match_negative = re.match(r"(.+) a négativement influencé le score d'environ -(\d+\.?\d*)%", explanation_text)
-    match_neutral = re.match(r"(.+) a influencé le score d'environ (\d+\.?\d*)%", explanation_text)
+    match_positive = re.match(r"La (fonctionnalité|feature) '(.+?)' impacte positivement la prédiction avec un poids de (\d+\.?\d*)", explanation_text)
+    match_negative = re.match(r"La (fonctionnalité|feature) '(.+?)' impacte négativement la prédiction avec un poids de (-\d+\.?\d*)", explanation_text)
 
+    # Flèche à angle droit : HTML unicode character
+    arrow_html = "&#10148;" # Pour une flèche orientée à droite
 
     if match_positive:
-        description = match_positive.group(1).strip()
-        value = f"+{match_positive.group(2)}%"
-        return "⬆️", description, value, True
+        feature_name = match_positive.group(2).strip()
+        value = match_positive.group(3)
+        description = f"La fonctionnalité '{feature_name}' impacte positivement la prédiction avec un poids de "
+        return arrow_html, description, value, True
     elif match_negative:
-        description = match_negative.group(1).strip()
-        value = f"-{match_negative.group(2)}%"
-        return "⬇️", description, value, False
-    elif match_neutral:
-        description = match_neutral.group(1).strip()
-        value = f"+{match_neutral.group(2)}%" # Pour le cas où il y aurait une influence neutre sans signe explicite
-        return "➡️", description, value, True # On peut le considérer comme positif ou neutre par défaut
+        feature_name = match_negative.group(2).strip()
+        value = match_negative.group(3)
+        description = f"La fonctionnalité '{feature_name}' impacte négativement la prédiction avec un poids de "
+        return arrow_html, description, value, False
     else:
-        # Cas par défaut si le format ne correspond pas, pour éviter les erreurs
-        return "➡️", explanation_text, "", True # Flèche neutre, texte brut, pas de valeur claire, considéré positif pour la couleur par défaut
+        # Cas par défaut si le format ne correspond pas
+        return arrow_html, explanation_text, "", False # Par défaut, mettons-le en rouge pour signaler un problème de parsing
 
 
 # Fonction pour afficher un facteur SHAP stylisé
-def _display_shap_factor(direction_symbol, description, value, is_positive):
+def _display_shap_factor(direction_symbol_html, description, value, is_positive):
     """Affiche un facteur SHAP avec le style conditionnel."""
+    # Couleurs de fond et de texte basées sur l'image fournie
     bg_color = "#e6ffe6" if is_positive else "#ffe6e6" # Vert clair si positif, rouge clair si négatif
-    text_color = "#269f67" if is_positive else "#ea4521" # Vert foncé si positif, rouge foncé si négatif
+    score_color = "#269f67" if is_positive else "#ea4521" # Vert foncé si positif, rouge foncé si négatif
+    arrow_color = "#6c757d" # Couleur de la flèche (gris) comme sur l'image
 
     # Style pour la boîte globale
     container_style = f"""
@@ -67,6 +69,7 @@ def _display_shap_factor(direction_symbol, description, value, is_positive):
         align-items: center;
         justify-content: space-between;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Ombre légère */
+        min-height: 40px; /* Assure une hauteur minimale */
     """
     # Style pour la description et la flèche
     desc_style = f"""
@@ -75,24 +78,27 @@ def _display_shap_factor(direction_symbol, description, value, is_positive):
         font-weight: 500;
         display: flex;
         align-items: center;
+        flex-grow: 1; /* Permet à la description de prendre l'espace disponible */
     """
     # Style pour la valeur (score)
     value_style = f"""
         font-size: 16px;
         font-weight: bold;
-        color: {text_color};
+        color: {score_color};
+        text-align: right;
+        min-width: 60px; /* Assure un espace suffisant pour la valeur */
     """
     # Style pour la flèche
     arrow_style = f"""
         margin-right: 10px;
         font-size: 20px;
-        color: {text_color};
+        color: {arrow_color}; /* La flèche est toujours grise selon l'image */
     """
 
     html_content = f"""
     <div style="{container_style}">
         <div style="{desc_style}">
-            <span style="{arrow_style}">{direction_symbol}</span>
+            <span style="{arrow_style}">{direction_symbol_html}</span>
             <span>{description}</span>
         </div>
         <div style="{value_style}">
@@ -279,8 +285,8 @@ if st.session_state['api_called']:
     if explanations_from_api:
         # Appliquer le style conditionnel aux explications SHAP
         for explanation_text in explanations_from_api:
-            direction_symbol, description, value, is_positive = _parse_shap_explanation(explanation_text)
-            _display_shap_factor(direction_symbol, description, value, is_positive)
+            direction_symbol_html, description, value, is_positive = _parse_shap_explanation(explanation_text)
+            _display_shap_factor(direction_symbol_html, description, value, is_positive)
     else:
         st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
 else:
