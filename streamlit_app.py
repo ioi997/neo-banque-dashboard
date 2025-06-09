@@ -46,7 +46,7 @@ col1, col2 = st.columns([0.6, 0.4])
 
 with col1:
     st.subheader("Informations Client")
-    
+
     # Création d'un DataFrame pour les informations du client
     client_info_df = pd.DataFrame({
         "Caractéristique": [
@@ -66,29 +66,49 @@ with col1:
             f"{float(client['score_credit']):.1f}"
         ]
     })
-    
+
     # Afficher le DataFrame
-    st.dataframe(client_info_df, hide_index=True) # hide_index=True pour ne pas afficher l'index du DataFrame
+    st.dataframe(client_info_df, hide_index=True)
 
+    # REINTRODUIT LE BOUTON ICI
+    if st.button("📤 Envoyer pour scoring", key="score_button"):
+        API_URL = os.getenv("API_URL", "https://neo-api-jigt.onrender.com/predict")
 
-API_URL = os.getenv("API_URL", "https://neo-api-jigt.onrender.com/predict")
+        input_data = {
+            "age": int(client["age"]),
+            "revenu": float(client["revenu"]),
+            "anciennete": int(client["anciennete"]),
+            "nb_incidents": int(client["nb_incidents"]),
+            "score_credit": float(client["score_credit"]),
+        }
 
-# La logique de scoring et d'affichage est maintenant exécutée à chaque changement de client sélectionné
-input_data = {
-    "age": int(client["age"]),
-    "revenu": float(client["revenu"]),
-    "anciennete": int(client["anciennete"]),
-    "nb_incidents": int(client["nb_incidents"]),
-    "score_credit": float(client["score_credit"]),
-}
+        try:
+            logging.info(f"Envoi de la requête à l'API pour le client ID: {client['id']}")
+            res = requests.post(API_URL, json=input_data, timeout=10)
+            res.raise_for_status()
+            response_data = res.json()
+            score = response_data["score"]
+            explanations_from_api = response_data.get("explanations", [])
 
-try:
-    logging.info(f"Envoi de la requête à l'API pour le client ID: {client['id']}")
-    res = requests.post(API_URL, json=input_data, timeout=10)
-    res.raise_for_status()
-    response_data = res.json()
-    score = response_data["score"]
-    explanations_from_api = response_data.get("explanations", [])
+            # Utilisation de st.session_state pour stocker les résultats
+            st.session_state['score'] = score
+            st.session_state['explanations'] = explanations_from_api
+            st.session_state['api_called'] = True # Indique que l'API a été appelée
+
+        except requests.exceptions.ConnectionError:
+            st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
+            st.session_state['api_called'] = False
+        except requests.exceptions.RequestException as e:
+            st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
+            st.session_state['api_called'] = False
+        except Exception as e:
+            st.error(f"Une erreur inattendue s'est produite : {e}")
+            st.session_state['api_called'] = False
+
+# Vérifier si l'API a été appelée et afficher les résultats
+if 'api_called' in st.session_state and st.session_state['api_called']:
+    score = st.session_state['score']
+    explanations_from_api = st.session_state['explanations']
 
     with col2:
         st.subheader("Score de Crédit")
@@ -102,9 +122,9 @@ try:
                         "lineStyle": {
                             "width": 10,
                             "color": [
-                                [0.5, "#ea4521"],
-                                [0.8, "#f7bb10"],
-                                [1, "#269f67"]
+                                [0.5, "#ea4521"],  # Rouge pour <= 50%
+                                [0.8, "#f7bb10"],  # Jaune pour <= 80%
+                                [1, "#269f67"]     # Vert pour > 80%
                             ]
                         }
                     },
@@ -155,6 +175,7 @@ try:
             st.markdown("<p style='text-align: center; color: #ea4521; font-weight: bold;'>❌ Inéligible probable</p>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center;'>Score faible pour l'octroi de crédit</p>", unsafe_allow_html=True)
 
+    # Affichage des facteurs SHAP
     st.subheader("Comprendre le score (Facteurs d'influence SHAP)")
     if explanations_from_api:
         for explanation_text in explanations_from_api:
@@ -166,10 +187,10 @@ try:
                 st.write(f"➡️ {explanation_text}")
     else:
         st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
-
-except requests.exceptions.ConnectionError:
-    st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
-except requests.exceptions.RequestException as e:
-    st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
-except Exception as e:
-    st.error(f"Une erreur inattendue s'est produite : {e}")
+else:
+    # Message initial quand l'API n'a pas encore été appelée
+    with col2:
+        st.subheader("Score de Crédit")
+        st.info("Cliquez sur 'Envoyer pour scoring' pour calculer le score.")
+    st.subheader("Comprendre le score (Facteurs d'influence SHAP)")
+    st.info("Les facteurs d'influence SHAP apparaîtront après le calcul du score.")
