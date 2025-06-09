@@ -12,6 +12,15 @@ logging.basicConfig(level=logging.INFO)
 
 st.set_page_config(page_title="Dashboard Néo-Banque", layout="centered")
 
+# Fonction pour initialiser ou réinitialiser l'état de la session
+def reset_scoring_state():
+    """Réinitialise les variables de session liées au scoring et aux explications SHAP."""
+    if 'score' in st.session_state:
+        del st.session_state['score']
+    if 'explanations' in st.session_state:
+        del st.session_state['explanations']
+    st.session_state['api_called'] = False
+
 # Ajout de la section RGPD dans la sidebar
 with st.sidebar.expander("🔐 Données & RGPD"):
     st.markdown("""
@@ -37,9 +46,19 @@ except FileNotFoundError:
 st.title("📊 Dashboard conseiller")
 
 # Sélection du client
-selected_id = st.selectbox("Choisir un client", clients.index, key="client_selector")
+# Ajout du callback on_change pour réinitialiser l'état quand le client change
+selected_id = st.selectbox(
+    "Choisir un client",
+    clients.index,
+    key="client_selector",
+    on_change=reset_scoring_state # Appelle la fonction de réinitialisation
+)
 
 client = clients.loc[selected_id]
+
+# Initialisation de api_called à False si ce n'est pas déjà fait
+if 'api_called' not in st.session_state:
+    st.session_state['api_called'] = False
 
 # Utilisation de st.columns pour un agencement comme sur l'image
 col1, col2 = st.columns([0.6, 0.4])
@@ -70,7 +89,7 @@ with col1:
     # Afficher le DataFrame
     st.dataframe(client_info_df, hide_index=True)
 
-    # REINTRODUIT LE BOUTON ICI
+    # Bouton pour envoyer pour scoring
     if st.button("📤 Envoyer pour scoring", key="score_button"):
         API_URL = os.getenv("API_URL", "https://neo-api-jigt.onrender.com/predict")
 
@@ -90,23 +109,23 @@ with col1:
             score = response_data["score"]
             explanations_from_api = response_data.get("explanations", [])
 
-            # Utilisation de st.session_state pour stocker les résultats
+            # Stockage des résultats dans st.session_state
             st.session_state['score'] = score
             st.session_state['explanations'] = explanations_from_api
-            st.session_state['api_called'] = True # Indique que l'API a été appelée
+            st.session_state['api_called'] = True # Indique que l'API a été appelée et les résultats sont disponibles
 
         except requests.exceptions.ConnectionError:
             st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
-            st.session_state['api_called'] = False
+            reset_scoring_state() # Réinitialise l'état en cas d'erreur de connexion
         except requests.exceptions.RequestException as e:
             st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
-            st.session_state['api_called'] = False
+            reset_scoring_state() # Réinitialise l'état en cas d'erreur API
         except Exception as e:
             st.error(f"Une erreur inattendue s'est produite : {e}")
-            st.session_state['api_called'] = False
+            reset_scoring_state() # Réinitialise l'état en cas d'erreur inattendue
 
-# Vérifier si l'API a été appelée et afficher les résultats
-if 'api_called' in st.session_state and st.session_state['api_called']:
+# Vérifier si l'API a été appelée et afficher les résultats (jauge et SHAP)
+if st.session_state['api_called']:
     score = st.session_state['score']
     explanations_from_api = st.session_state['explanations']
 
@@ -188,7 +207,7 @@ if 'api_called' in st.session_state and st.session_state['api_called']:
     else:
         st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
 else:
-    # Message initial quand l'API n'a pas encore été appelée
+    # Messages initiaux quand l'API n'a pas encore été appelée ou après réinitialisation
     with col2:
         st.subheader("Score de Crédit")
         st.info("Cliquez sur 'Envoyer pour scoring' pour calculer le score.")
