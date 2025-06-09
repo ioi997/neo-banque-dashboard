@@ -6,7 +6,6 @@ import pandas as pd
 import requests
 import os
 import logging
-from streamlit_extras.st_gauge import st_gauge # Added import for st_gauge
 
 logging.basicConfig(level=logging.INFO)
 
@@ -56,16 +55,7 @@ if st.button("📤 Envoyer pour scoring"):
         score = response_data["score"]
         explanations_from_api = response_data.get("explanations", [])
 
-        # Replaced st.metric with st_gauge
-        st_gauge(
-            label="Score d’éligibilité au prêt",
-            value=score * 100,
-            min_value=0,
-            max_value=100,
-            colors=["#ea4521", "#f7bb10", "#269f67"],
-            gauge_type="full",
-            num_decimals=1,
-        )
+        st.metric("Score d’éligibilité au prêt", f"{score * 100:.1f} %")
 
         if score > 0.5:
             st.success("✅ Client éligible probable au prêt.")
