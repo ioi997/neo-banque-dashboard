@@ -6,6 +6,7 @@ import pandas as pd
 import requests
 import os
 import logging
+import re # Pour les expressions régulières afin de parser les explications SHAP
 from streamlit_echarts import st_echarts
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,87 @@ def reset_scoring_state():
     if 'explanations' in st.session_state:
         del st.session_state['explanations']
     st.session_state['api_called'] = False
+
+# Fonction utilitaire pour parser les explications SHAP
+def _parse_shap_explanation(explanation_text):
+    """
+    Parse une chaîne d'explication SHAP pour extraire la direction, la description et la valeur.
+    Ex: "Revenu annuel a positivement influencé le score d'environ +12.3%"
+    Retourne (direction_symbole, description, valeur_str, est_positif)
+    """
+    match_positive = re.match(r"(.+) a positivement influencé le score d'environ \+(\d+\.?\d*)%", explanation_text)
+    match_negative = re.match(r"(.+) a négativement influencé le score d'environ -(\d+\.?\d*)%", explanation_text)
+    match_neutral = re.match(r"(.+) a influencé le score d'environ (\d+\.?\d*)%", explanation_text)
+
+
+    if match_positive:
+        description = match_positive.group(1).strip()
+        value = f"+{match_positive.group(2)}%"
+        return "⬆️", description, value, True
+    elif match_negative:
+        description = match_negative.group(1).strip()
+        value = f"-{match_negative.group(2)}%"
+        return "⬇️", description, value, False
+    elif match_neutral:
+        description = match_neutral.group(1).strip()
+        value = f"+{match_neutral.group(2)}%" # Pour le cas où il y aurait une influence neutre sans signe explicite
+        return "➡️", description, value, True # On peut le considérer comme positif ou neutre par défaut
+    else:
+        # Cas par défaut si le format ne correspond pas, pour éviter les erreurs
+        return "➡️", explanation_text, "", True # Flèche neutre, texte brut, pas de valeur claire, considéré positif pour la couleur par défaut
+
+
+# Fonction pour afficher un facteur SHAP stylisé
+def _display_shap_factor(direction_symbol, description, value, is_positive):
+    """Affiche un facteur SHAP avec le style conditionnel."""
+    bg_color = "#e6ffe6" if is_positive else "#ffe6e6" # Vert clair si positif, rouge clair si négatif
+    text_color = "#269f67" if is_positive else "#ea4521" # Vert foncé si positif, rouge foncé si négatif
+
+    # Style pour la boîte globale
+    container_style = f"""
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        background-color: {bg_color};
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Ombre légère */
+    """
+    # Style pour la description et la flèche
+    desc_style = f"""
+        font-size: 16px;
+        color: #333; /* Couleur du texte de la description */
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+    """
+    # Style pour la valeur (score)
+    value_style = f"""
+        font-size: 16px;
+        font-weight: bold;
+        color: {text_color};
+    """
+    # Style pour la flèche
+    arrow_style = f"""
+        margin-right: 10px;
+        font-size: 20px;
+        color: {text_color};
+    """
+
+    html_content = f"""
+    <div style="{container_style}">
+        <div style="{desc_style}">
+            <span style="{arrow_style}">{direction_symbol}</span>
+            <span>{description}</span>
+        </div>
+        <div style="{value_style}">
+            {value}
+        </div>
+    </div>
+    """
+    st.markdown(html_content, unsafe_allow_html=True)
+
 
 # Ajout de la section RGPD dans la sidebar
 with st.sidebar.expander("🔐 Données & RGPD"):
@@ -46,7 +128,6 @@ except FileNotFoundError:
 st.title("📊 Dashboard conseiller")
 
 # Sélection du client
-# Ajout du callback on_change pour réinitialiser l'état quand le client change
 selected_id = st.selectbox(
     "Choisir un client",
     clients.index,
@@ -112,17 +193,17 @@ with col1:
             # Stockage des résultats dans st.session_state
             st.session_state['score'] = score
             st.session_state['explanations'] = explanations_from_api
-            st.session_state['api_called'] = True # Indique que l'API a été appelée et les résultats sont disponibles
+            st.session_state['api_called'] = True
 
         except requests.exceptions.ConnectionError:
             st.error(f"Erreur de connexion à l’API. Vérifiez que l'API est accessible à l'adresse {API_URL}.")
-            reset_scoring_state() # Réinitialise l'état en cas d'erreur de connexion
+            reset_scoring_state()
         except requests.exceptions.RequestException as e:
             st.error(f"Erreur lors de la communication avec l’API : {e}. Vérifiez l'URL et la configuration de l'API.")
-            reset_scoring_state() # Réinitialise l'état en cas d'erreur API
+            reset_scoring_state()
         except Exception as e:
             st.error(f"Une erreur inattendue s'est produite : {e}")
-            reset_scoring_state() # Réinitialise l'état en cas d'erreur inattendue
+            reset_scoring_state()
 
 # Vérifier si l'API a été appelée et afficher les résultats (jauge et SHAP)
 if st.session_state['api_called']:
@@ -194,20 +275,15 @@ if st.session_state['api_called']:
             st.markdown("<p style='text-align: center; color: #ea4521; font-weight: bold;'>❌ Inéligible probable</p>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center;'>Score faible pour l'octroi de crédit</p>", unsafe_allow_html=True)
 
-    # Affichage des facteurs SHAP
     st.subheader("Comprendre le score (Facteurs d'influence SHAP)")
     if explanations_from_api:
+        # Appliquer le style conditionnel aux explications SHAP
         for explanation_text in explanations_from_api:
-            if "positivement" in explanation_text:
-                st.write(f"⬆️ {explanation_text}")
-            elif "négativement" in explanation_text:
-                st.write(f"⬇️ {explanation_text}")
-            else:
-                st.write(f"➡️ {explanation_text}")
+            direction_symbol, description, value, is_positive = _parse_shap_explanation(explanation_text)
+            _display_shap_factor(direction_symbol, description, value, is_positive)
     else:
         st.info("Aucune explication détaillée disponible pour le moment ou une erreur s'est produite côté API.")
 else:
-    # Messages initiaux quand l'API n'a pas encore été appelée ou après réinitialisation
     with col2:
         st.subheader("Score de Crédit")
         st.info("Cliquez sur 'Envoyer pour scoring' pour calculer le score.")
